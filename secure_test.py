@@ -40,7 +40,7 @@ if "results" in data and len(data["results"]) > 0:
     print(f"Preparing to load {len(records_to_insert)} records to the cloud...")
     
     # Insert records into Supabase
-    db_response = supabase.table("air_quality_readings").upsert(records_to_insert).execute()
+    db_response = supabase.table("air_quality_readings").upsert(records_to_insert, on_conflict="sensor_id,reading_time").execute()
     
     print("Success! Data has been written to Supabase.")
 else:
