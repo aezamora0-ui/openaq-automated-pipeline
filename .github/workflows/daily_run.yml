@@ -9,6 +9,9 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -28,4 +31,4 @@ jobs:
           OPENAQ_KEY: ${{ secrets.OPENAQ_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python final_test.py
+        run: python secure_test.py
