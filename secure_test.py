@@ -15,7 +15,12 @@ print("Fetching latest data from OpenAQ...")
 sensor_id = 23534
 url = f"https://api.openaq.org/v3/sensors/{sensor_id}/measurements"
 headers = {"X-API-Key": OPENAQ_KEY}
-params = {"limit": 5, "page": 1}
+params = {
+    "limit": 5,
+    "page": 1,
+    "order_by": "datetime",
+    "sort": "desc")
+}
 
 response = requests.get(url, headers=headers, params=params)
 data = response.json()
