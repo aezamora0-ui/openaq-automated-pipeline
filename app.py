@@ -40,7 +40,7 @@ if response.data:
     st.markdown("---")
     st.subheader("🤖 AI Executive Action Briefing")
     
-   with st.spinner("Running API Diagnostic..."):
+    with st.spinner("Running API Diagnostic..."):
         try:
             # Test authentication and list permitted models
             allowed_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -48,13 +48,6 @@ if response.data:
             st.write("Your key has access to these models:", allowed_models)
         except Exception as e:
             st.error(f"Authentication Failed. Error details: {e}")
-        
-        # Execute inference via Gemini 1.5 Flash
-        model = genai.GenerativeModel("gemini-pro")
-        ai_response = model.generate_content(prompt)
-        
-        # Render output
-        st.write(ai_response.text)
         
     st.markdown("---")
     st.subheader("📊 Raw Database Records")
