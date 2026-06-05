@@ -2,76 +2,99 @@
 OpenAQ Data Ingestion Pipeline
 ------------------------------
 Automated ETL script that extracts real-time PM2.5 telemetry from the OpenAQ API,
-transforms the JSON payload to match the database schema, and loads the data into 
-a Supabase PostgreSQL database using conflict-resistant upsert operations.
+transforms the payload, and upserts it to a Supabase PostgreSQL database.
 """
 
 import os
 import requests
 from supabase import create_client, Client
 
-# --- 1. Infrastructure & Authentication ---
-# Secrets are injected via CI/CD environment variables (e.g., GitHub Actions)
-# Utilizing the service_role key to bypass RLS for automated backend ingestion
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+def load_env_file(filename: str = ".env") -> None:
+    """Loads environment variables from a local .env file relative to the script directory."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    filepath = os.path.join(script_dir, filename)
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                os.environ[key] = value
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# --- 2. API Configuration ---
-# In OpenAQ v3, we query a specific sensor ID instead of a location ID.
-# For location 442 (North Phoenix), the sensor ID for PM2.5 is 765.
-SENSOR_ID = 765
-API_ENDPOINT = f"https://api.openaq.org/v3/sensors/{SENSOR_ID}/measurements"
-OPENAQ_KEY = os.environ.get("OPENAQ_KEY", "bb995982779def63e34ed09672a4fcad8da94961f46e47842d1a9d93219b1631")
-
-headers = {
-    "X-API-Key": OPENAQ_KEY
-}
-
-# Query parameters configured for descending chronological retrieval
-params = {
-    "limit": 5, 
-    "page": 1
-}
-
-# --- 3. Extract Phase ---
-print(f"Initiating data extraction for sensor ID: {SENSOR_ID}...")
-response = requests.get(API_ENDPOINT, headers=headers, params=params)
-
-if response.status_code == 200:
-    data = response.json()
-    records_to_insert = []
+def extract_pm25_telemetry(sensor_id: int, api_key: str) -> list:
+    """Extracts raw PM2.5 telemetry data from OpenAQ API v3."""
+    url = f"https://api.openaq.org/v3/sensors/{sensor_id}/measurements"
+    headers = {"X-API-Key": api_key}
+    params = {"limit": 5, "page": 1}
     
-    # --- 4. Transform Phase ---
-    # Parse payload and map values to the target database schema
-    for result in data.get('results', []):
+    print(f"Initiating data extraction for sensor ID: {sensor_id}...")
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        return response.json().get("results", [])
+    else:
+        print(f"[ERROR] API Request Failed. HTTP Status Code: {response.status_code}")
+        response.raise_for_status()
+
+def transform_measurements(raw_results: list, sensor_id: int) -> list:
+    """Transforms raw API measurements to match the database schema."""
+    records = []
+    for result in raw_results:
+        # Extract UTC timestamp representing the end of the measurement interval
         utc_time = result.get("period", {}).get("datetimeTo", {}).get("utc")
         record = {
-            "sensor_id": SENSOR_ID,
+            "sensor_id": sensor_id,
             "reading_time": utc_time,
             "pm25_value": result.get("value")
         }
-        records_to_insert.append(record)
+        records.append(record)
         print(f"Mapped record: {record['reading_time']} | PM2.5: {record['pm25_value']}")
+    return records
 
-    # --- 5. Load Phase ---
-    if records_to_insert:
-        try:
-            # Execute batch upsert. 
-            # on_conflict targets the composite unique constraint to guarantee idempotency
-            db_response = supabase.table("air_quality_readings").upsert(
-                records_to_insert, 
-                on_conflict="sensor_id,reading_time"
-            ).execute()
-            
-            print(f"[SUCCESS] Pipeline complete: {len(records_to_insert)} records successfully upserted.")
-        except Exception as e:
-            print(f"[ERROR] Database execution error: {e}")
-    else:
+def load_to_supabase(records: list, supabase_url: str, supabase_key: str) -> None:
+    """Upserts transformed records into the database with conflict-resistant unique constraints."""
+    if not records:
         print("[WARNING] Extraction complete: No PM2.5 data found in the current time window.")
+        return
 
-else:
-    print(f"[ERROR] API Request Failed. HTTP Status Code: {response.status_code}")
+    supabase: Client = create_client(supabase_url, supabase_key)
+    try:
+        # Batch upsert targeting the composite unique constraint (sensor_id, reading_time)
+        supabase.table("air_quality_readings").upsert(
+            records,
+            on_conflict="sensor_id,reading_time"
+        ).execute()
+        print(f"[SUCCESS] Pipeline complete: {len(records)} records successfully upserted.")
+    except Exception as e:
+        print(f"[ERROR] Database execution error: {e}")
+        raise e
 
+def main() -> None:
+    load_env_file()
+    
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_KEY")
+    openaq_key = os.environ.get("OPENAQ_KEY")
+    
+    if not all([supabase_url, supabase_key, openaq_key]):
+        raise ValueError(
+            "Missing environment configuration. "
+            "Please ensure SUPABASE_URL, SUPABASE_KEY, and OPENAQ_KEY are set."
+        )
 
+    # PM2.5 sensor ID for Location 442 (North Phoenix)
+    sensor_id = 765
+    
+    try:
+        raw_data = extract_pm25_telemetry(sensor_id, openaq_key)
+        transformed_data = transform_measurements(raw_data, sensor_id)
+        load_to_supabase(transformed_data, supabase_url, supabase_key)
+    except Exception as e:
+        print(f"[CRITICAL] ETL Pipeline failed: {e}")
+        exit(1)
+
+if __name__ == "__main__":
+    main()
