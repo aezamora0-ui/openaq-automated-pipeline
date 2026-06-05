@@ -60,7 +60,7 @@ if response.data:
         """
         
         # Execute inference via Gemini 1.5 Flash
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        model = genai.GenerativeModel("gemini-pro")
         ai_response = model.generate_content(prompt)
         
         # Render output
