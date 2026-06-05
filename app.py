@@ -40,15 +40,35 @@ if response.data:
     st.markdown("---")
     st.subheader("🤖 AI Executive Action Briefing")
     
-    with st.spinner("Running API Diagnostic..."):
-        try:
-            # Test authentication and list permitted models
-            allowed_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            st.success("API Key successfully authenticated!")
-            st.write("Your key has access to these models:", allowed_models)
-        except Exception as e:
-            st.error(f"Authentication Failed. Error details: {e}")
+    with st.spinner("Analyzing latest air quality vectors..."):
+        # Format recent data for LLM context window
+        latest_data_summary = df.tail(10)[["reading_time", "pm25_value"]].to_string()
         
+        # System prompt: Role, constraints, and output format
+        prompt = f"""
+        You are an expert environmental data scientist and public health advisor. 
+        Analyze the following recent PM2.5 air quality readings from New Delhi:
+        
+        {latest_data_summary}
+        
+        Provide an executive briefing containing:
+        1. Current Status Assessment: Summarize the current trend and severity.
+        2. Public Health Warning Level: State who is at risk.
+        3. Tactical Recommendations: Give 2 explicit, actionable steps for mitigation.
+        
+        Keep your response professional, concise, and structured with markdown bullets.
+        """
+        
+        try:
+            # Execute inference via Gemini 2.5 Flash
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            ai_response = model.generate_content(prompt)
+            
+            # Render output
+            st.write(ai_response.text)
+        except Exception as e:
+            st.error(f"Inference Engine Error: {e}")
+            
     st.markdown("---")
     st.subheader("📊 Raw Database Records")
     st.dataframe(df)
