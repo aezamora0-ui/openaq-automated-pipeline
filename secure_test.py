@@ -12,7 +12,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # --- 2. Extract: Pull from OpenAQ ---
 print("Fetching latest data from OpenAQ...")
-sensor_id = 23534
+sensor_id = 442
 url = f"https://api.openaq.org/v3/sensors/{sensor_id}/measurements"
 headers = {"X-API-Key": OPENAQ_KEY}
 params = {
