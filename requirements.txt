@@ -2,3 +2,4 @@ requests
 supabase
 streamlit
 pandas
+google-generativeai
