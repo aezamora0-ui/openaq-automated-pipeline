@@ -6,7 +6,7 @@ import pandas as pd
 # --- 1. Connection ---
 # Use your PUBLIC anon key here, NOT your secret service role key!
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aHNmZmdjbGd4aXhhZmxqdmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDI5MDUsImV4cCI6MjA5NjAxODkwNX0.4vI-GE64yKmasfi3tIjNXD9iAuF3DUiD4H8p6eSB2dE"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
